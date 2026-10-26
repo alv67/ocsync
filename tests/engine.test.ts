@@ -116,6 +116,21 @@ function setup() {
   return { root, remote, dirA, dirB, adapterA, adapterB, storeA, storeB, engineA, engineB }
 }
 
+async function createConflict(context: ReturnType<typeof setup>): Promise<void> {
+  context.adapterA.sessions.set("ses_one", snapshot("ses_one", context.dirA, ["base"]))
+  await context.engineA.push()
+  await context.engineB.pull()
+
+  const onA = context.adapterA.sessions.get("ses_one")
+  onA?.messages.push({ id: "msg_a", type: "user", text: "from A", time: { created: 10 } })
+  await context.engineA.push()
+
+  const onB = context.adapterB.sessions.get("ses_one")
+  onB?.messages.push({ id: "msg_b", type: "user", text: "from B", time: { created: 11 } })
+  const pull = await context.engineB.pull()
+  if (pull.conflicts.length !== 1) throw new Error("fixture did not produce a conflict")
+}
+
 describe("sync engine", () => {
   test("pushes a session and pulls it on the other device", async () => {
     const context = setup()
@@ -179,6 +194,61 @@ describe("sync engine", () => {
         "hello",
         "local only",
       ])
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("resolves a conflict by keeping the remote transcript", async () => {
+    const context = setup()
+    try {
+      await createConflict(context)
+      const result = await context.engineB.resolve("ses_one", "remote")
+      expect(result.mode).toBe("remote")
+      expect(context.adapterB.sessions.get("ses_one")?.messages.map((message) => message.text)).toEqual([
+        "base",
+        "from A",
+      ])
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("resolves a conflict by making the local transcript the new head", async () => {
+    const context = setup()
+    try {
+      await createConflict(context)
+      const result = await context.engineB.resolve("ses_one", "local")
+      expect(result.mode).toBe("local")
+
+      await context.engineA.pull()
+      expect(context.adapterA.sessions.get("ses_one")?.messages.map((message) => message.text)).toEqual([
+        "base",
+        "from B",
+      ])
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("resolves a conflict by preserving both transcripts", async () => {
+    const context = setup()
+    try {
+      await createConflict(context)
+      const result = await context.engineB.resolve("ses_one", "both")
+      expect(result.mode).toBe("both")
+      const copyID = result.copySessionID
+      if (!copyID) throw new Error("missing copy session ID")
+
+      const copy = context.adapterB.sessions.get(copyID)
+      expect(copy?.messages.map((message) => message.text)).toEqual(["base", "from A"])
+
+      await context.engineA.pull()
+      expect(context.adapterA.sessions.get("ses_one")?.messages.map((message) => message.text)).toEqual([
+        "base",
+        "from B",
+      ])
+      expect(context.adapterA.sessions.get(copyID)?.messages.map((message) => message.text)).toEqual(["base", "from A"])
     } finally {
       rmSync(context.root, { recursive: true, force: true })
     }

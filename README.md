@@ -33,7 +33,7 @@ OpenCode server ──export/import──> ocsync core ──> private Git repos
         └──────── plugin trigger ────────┘
 ```
 
-- The **CLI** performs `status`, `push`, `pull`, and `sync`.
+- The **CLI** performs `status`, `push`, `pull`, `sync`, `key`, `doctor`, and `resolve`. Conflicts are reported for explicit resolution.
 - The **server plugin** watches session events and invokes the CLI with a debounce. It runs inside the OpenCode server that is already running, so there is no extra daemon.
 - Every session revision is an immutable encrypted blob. A per-device index points at the current head. Revisions form a hash chain, which lets `ocsync` distinguish a fast-forward from a real divergence.
 
