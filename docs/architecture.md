@@ -143,7 +143,7 @@ The import route sets `time.updated` to the import time and remaps the location,
 
 ### Conflicts
 
-A conflict means the two sides have revisions that are not ancestors of one another. `ocsync` never picks a winner automatically. The current version reports the conflict and leaves both sides untouched. A future `resolve` command will import the remote branch under a new session ID, preserving both transcripts.
+A conflict means the two sides have revisions that are not ancestors of one another. `ocsync` never picks a winner automatically. The current version reports the conflict and leaves both sides untouched. `ocsync resolve <session> --keep local|remote|both` resolves it explicitly. `--keep both` imports the remote transcript as a new session and continues the local transcript on top of the remote head.
 
 ## Session replacement
 

@@ -34,6 +34,7 @@ Commands:
   init --remote <url>       Create a configuration and encryption key
   status                    Show local sessions and sync state
   sync                      Push local changes, then pull remote changes
+  resolve <session>          Resolve a conflict with --keep local|remote|both
   push                      Push local session changes
   pull                      Pull remote session changes
   key init                  Generate the local encryption key
@@ -50,6 +51,7 @@ Options:
   --server <url>            OpenCode server URL (default: local background service)
   --password <password>     OpenCode server password
   --key-file <path>         Encryption key path for init and key commands
+  --keep <mode>             Conflict resolution: local, remote, or both
   --dry-run                 Show what would happen without writing
   --json                    Print machine-readable JSON
   --quiet                   Suppress progress messages
@@ -67,6 +69,7 @@ interface CliOptions {
   server?: string
   password?: string
   keyFile?: string
+  keep?: string
   dryRun: boolean
   json: boolean
   quiet: boolean
@@ -86,6 +89,7 @@ function parseCli(argv: string[]): { command: string[]; options: CliOptions } {
       server: { type: "string" },
       password: { type: "string" },
       "key-file": { type: "string" },
+      keep: { type: "string" },
       "dry-run": { type: "boolean" },
       json: { type: "boolean" },
       quiet: { type: "boolean" },
@@ -105,6 +109,7 @@ function parseCli(argv: string[]): { command: string[]; options: CliOptions } {
       server: values.server,
       password: values.password,
       keyFile: values["key-file"],
+      keep: values.keep,
       dryRun: values["dry-run"] === true,
       json: values.json === true,
       quiet: values.quiet === true,
@@ -421,6 +426,25 @@ async function main(): Promise<void> {
     const result = await engine.sync({ dryRun: options.dryRun })
     printPush(result.push, options)
     printPull(result.pull, options)
+    return
+  }
+
+  if (name === "resolve") {
+    const sessionID = command[1]
+    if (!sessionID) throw new ConfigError("Usage: ocsync resolve <session-id> --keep local|remote|both")
+    if (options.keep !== "local" && options.keep !== "remote" && options.keep !== "both") {
+      throw new ConfigError("--keep must be one of: local, remote, both.")
+    }
+    const engine = createEngine(options)
+    const result = await engine.resolve(sessionID, options.keep)
+    if (options.json) {
+      printJson(result)
+    } else {
+      const lines = [`Resolved ${result.sessionID}: ${result.mode}`, `Revision: ${result.revision}`]
+      if (result.copySessionID) lines.push(`Remote copy: ${result.copySessionID}`)
+      if (result.backup) lines.push(`Local backup: ${result.backup}`)
+      printLines(lines)
+    }
     return
   }
 

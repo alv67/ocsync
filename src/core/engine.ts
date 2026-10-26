@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { LoadedConfig } from "./config.js"
 import { stateDir } from "./config.js"
-import { decryptJson, encryptJson } from "./crypto.js"
+import { decryptJson, encryptJson, newSessionID } from "./crypto.js"
 import type { GitStore } from "./git-store.js"
 import { projectKey as computeProjectKey, isPathWithin, ProjectKeyCache } from "./project.js"
 import { chainRevision, revisionOf, shortRevision } from "./revision.js"
@@ -58,6 +58,16 @@ export interface PullResult {
   pulled: string[]
   skipped: { id: string; reason: string }[]
   conflicts: SessionStatus[]
+}
+
+export type ResolveMode = "local" | "remote" | "both"
+
+export interface ResolveResult {
+  sessionID: string
+  mode: ResolveMode
+  revision: string
+  copySessionID?: string
+  backup?: string
 }
 
 export interface SyncResult {
@@ -191,6 +201,33 @@ export class SyncEngine {
       deleted: record?.deleted ?? false,
       localRevision,
     }
+  }
+
+  private writeSnapshotRevision(
+    index: DeviceIndex,
+    sessionID: string,
+    snapshot: SessionSnapshot,
+    parentRevision: string | null,
+  ): string {
+    const contentRevision = revisionOf(snapshot)
+    const revision = chainRevision(parentRevision, contentRevision)
+    const blob = this.store.writeBlob(this.project, sessionID, revision, encryptJson(this.key, snapshot))
+    const record: RevisionRecord = {
+      schemaVersion: 1,
+      revision,
+      parentRevision,
+      sessionID,
+      project: this.project,
+      deviceID: this.config.device,
+      createdAt: this.now(),
+      messageCount: snapshot.messages.length,
+      lastMessageID: this.lastMessageID(snapshot),
+      blob,
+      deleted: false,
+    }
+    this.store.writeRevision(record)
+    index.sessions[sessionID] = this.baseState(revision, contentRevision, record)
+    return revision
   }
 
   async status(): Promise<StatusReport> {
@@ -510,6 +547,93 @@ export class SyncEngine {
       remoteTip,
       state: "diverged",
     }
+  }
+
+  async resolve(sessionID: string, mode: ResolveMode): Promise<ResolveResult> {
+    this.store.ensure()
+    this.store.pullRebase()
+
+    const index = this.readIndex()
+    const sessions = await this.sessionsForProject()
+    const local = sessions.find((session) => session.id === sessionID)
+    const active = await this.activeSessionIDs()
+
+    if (local && active.has(sessionID)) {
+      throw new SyncError("Cannot resolve an active session. Wait for it to become idle.")
+    }
+
+    const remote = (await this.remoteTips()).get(sessionID)
+    if (!remote || remote.tips.length === 0) {
+      throw new SyncError(`No remote revision found for ${sessionID}.`)
+    }
+    if (remote.tips.length > 1) {
+      throw new SyncError(`Multiple remote heads exist for ${sessionID}; resolve them manually before retrying.`)
+    }
+
+    const remoteTip = remote.tips[0]
+    const record = remote.records[0]
+    if (!remoteTip || !record) throw new SyncError(`No remote revision found for ${sessionID}.`)
+    if (record.project !== this.project) {
+      throw new SyncError(`Remote revision for ${sessionID} belongs to a different project.`)
+    }
+    if (record.deleted) {
+      throw new SyncError(`Remote revision for ${sessionID} is a deletion; deletion handling is not implemented yet.`)
+    }
+    if (!record.blob) throw new SyncError(`Remote revision for ${sessionID} has no blob.`)
+
+    const payload = this.store.readBlob(record.project, record.sessionID, record.revision)
+    if (!payload) throw new SyncError(`Remote session blob for ${sessionID} is missing.`)
+    const remoteSnapshot = decryptJson<SessionSnapshot>(this.key, payload)
+    if (remoteSnapshot.info.parentID) {
+      throw new SyncError("Resolving child sessions is not supported yet.")
+    }
+
+    if (!local && mode !== "remote") {
+      throw new SyncError(`Local session ${sessionID} does not exist.`)
+    }
+
+    if (mode === "remote") {
+      if (local && this.hasChildren(sessionID, sessions)) {
+        throw new SyncError("Replacing this session would delete its local child sessions.")
+      }
+      const localSnapshot = local ? await this.adapter.exportSession(sessionID) : null
+      const backup = localSnapshot ? this.backup(localSnapshot) : undefined
+      if (local) await this.adapter.deleteSession(sessionID)
+      await this.adapter.importSession(remoteSnapshot, this.projectDirectory)
+      const imported = await this.adapter.exportSession(sessionID)
+      index.sessions[sessionID] = this.baseState(remoteTip, revisionOf(imported), record)
+      this.writeIndex(index)
+      this.store.commitAndPush(`ocsync: resolve ${sessionID} with remote`)
+      return backup ? { sessionID, mode, revision: remoteTip, backup } : { sessionID, mode, revision: remoteTip }
+    }
+
+    if (!local) throw new SyncError(`Local session ${sessionID} does not exist.`)
+    const localSnapshot = await this.adapter.exportSession(sessionID)
+
+    if (mode === "local") {
+      const revision = this.writeSnapshotRevision(index, sessionID, localSnapshot, remoteTip)
+      this.writeIndex(index)
+      this.store.commitAndPush(`ocsync: resolve ${sessionID} with local`)
+      return { sessionID, mode, revision }
+    }
+
+    // Keep both: the remote transcript becomes a new session, while the local
+    // transcript continues on top of the remote head.
+    const copyID = newSessionID()
+    const copy = structuredClone(remoteSnapshot)
+    copy.info.id = copyID
+    delete copy.info.parentID
+    delete copy.info.fork
+    delete copy.info.revert
+    copy.info.title = copy.info.title ? `${copy.info.title} (remote copy)` : "Remote copy"
+    copy.info.location = { ...copy.info.location, directory: this.projectDirectory }
+    await this.adapter.importSession(copy, this.projectDirectory)
+    const importedCopy = await this.adapter.exportSession(copyID)
+    this.writeSnapshotRevision(index, copyID, importedCopy, null)
+    const revision = this.writeSnapshotRevision(index, sessionID, localSnapshot, remoteTip)
+    this.writeIndex(index)
+    this.store.commitAndPush(`ocsync: resolve ${sessionID} keeping both`)
+    return { sessionID, mode, revision, copySessionID: copyID }
   }
 
   async sync(input: { dryRun?: boolean } = {}): Promise<SyncResult> {
