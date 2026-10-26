@@ -51,6 +51,16 @@ bun run build
 
 `bun run check` runs Biome, TypeScript, and the test suite.
 
+### End-to-end check
+
+With OpenCode V2 on `PATH`, run:
+
+```bash
+bash scripts/e2e.sh
+```
+
+The script starts two isolated OpenCode servers, creates a temporary session, pushes it from one server, pulls it into the other, and verifies the transcript. Set `KEEP_E2E=1` to keep the temporary directory for inspection.
+
 The repository uses a two-branch model:
 
 - `main` is release-only and protected.

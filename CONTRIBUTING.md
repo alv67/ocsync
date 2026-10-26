@@ -57,6 +57,8 @@ Pull requests target `develop`. `main` is release-only.
 - Engine tests use a fake OpenCode adapter and a temporary bare Git repository.
 - Integration tests against a real OpenCode server are welcome, but must not touch a developer's real sessions or database.
 - Run `bun test` before opening a pull request.
+- Run `bash scripts/e2e.sh` for a real two-server smoke test. It requires `opencode`, `git`, `jq`, and `bun`, and uses isolated databases and temporary directories.
+- With OpenCode V2 on `PATH`, `bash scripts/e2e.sh` exercises two isolated servers and the real HTTP API.
 
 ## Code style
 
