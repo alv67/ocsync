@@ -295,13 +295,20 @@ async function commandStatus(options: CliOptions): Promise<void> {
   ])
 }
 
-function printPush(result: { pushed: string[]; skipped: { id: string; reason: string }[] }, options: CliOptions): void {
+function printPush(
+  result: { pushed: string[]; tombstoned: string[]; skipped: { id: string; reason: string }[] },
+  options: CliOptions,
+): void {
   if (options.json) {
     printJson(result)
     return
   }
   const lines = [`Pushed: ${result.pushed.length}`]
   for (const id of result.pushed) lines.push(`  ${id}`)
+  if (result.tombstoned.length > 0) {
+    lines.push(`Deletions propagated: ${result.tombstoned.length}`)
+    for (const id of result.tombstoned) lines.push(`  ${id}`)
+  }
   if (result.skipped.length > 0) {
     lines.push("Skipped:")
     for (const item of result.skipped) lines.push(`  ${item.id}: ${item.reason}`)
@@ -312,6 +319,7 @@ function printPush(result: { pushed: string[]; skipped: { id: string; reason: st
 function printPull(
   result: {
     pulled: string[]
+    deleted: string[]
     skipped: { id: string; reason: string }[]
     conflicts: { id: string; remoteTip: string | null; state: string }[]
   },
@@ -323,6 +331,10 @@ function printPull(
   }
   const lines = [`Pulled: ${result.pulled.length}`]
   for (const id of result.pulled) lines.push(`  ${id}`)
+  if (result.deleted.length > 0) {
+    lines.push(`Deleted locally: ${result.deleted.length}`)
+    for (const id of result.deleted) lines.push(`  ${id}`)
+  }
   if (result.skipped.length > 0) {
     lines.push("Skipped:")
     for (const item of result.skipped) lines.push(`  ${item.id}: ${item.reason}`)
