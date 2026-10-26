@@ -5,41 +5,56 @@ on:
     types: [opened]
 
 permissions:
+  contents: read
   issues: write
 
 jobs:
-  label:
-    name: Label external issues
-    if: github.event.issue.user.login != github.repository_owner
+  triage:
+    name: Label and add to project
     runs-on: ubuntu-latest
     steps:
-      - name: Add triage label and comment
+      - name: Label external issues
+        if: github.event.issue.user.login != github.repository_owner
         uses: actions/github-script@v7
         with:
           script: |
+            const issue = context.issue
             await github.rest.issues.addLabels({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
+              issue_number: issue.number,
               labels: ["needs-triage"],
             })
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: "Thanks for the report. This issue is in triage: a maintainer will check reproducibility, scope, and priority before it becomes a work item.",
+              issue_number: issue.number,
+              body: [
+                "Thanks for the report. A maintainer will triage this issue.",
+                "",
+                "Triage checks reproduction details, scope, duplicates, and security impact. Only accepted issues become work items in the project.",
+                "",
+                "If this is a security report, please close this issue and use the private reporting link in SECURITY.md instead.",
+              ].join("\n"),
             })
 
-  project:
-    name: Add issue to project
-    if: vars.PROJECT_NUMBER != ''
-    runs-on: ubuntu-latest
-    steps:
       - name: Add to project
+        if: vars.PROJECT_NUMBER != ''
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
           PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_OWNER: ${{ github.repository_owner }}
+          PROJECT_ID: ${{ vars.PROJECT_ID }}
+          STAGE_FIELD_ID: ${{ vars.PROJECT_STAGE_FIELD_ID }}
+          TRIAGE_OPTION_ID: ${{ vars.PROJECT_TRIAGE_OPTION_ID }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
         run: |
-          gh project item-add "$PROJECT_NUMBER" \
-            --owner "${{ github.repository_owner }}" \
-            --url "${{ github.event.issue.html_url }}"
+          set -euo pipefail
+          item="$(gh project item-add "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --url "$ISSUE_URL" --format json --jq '.id')"
+          if [ -n "${STAGE_FIELD_ID:-}" ] && [ -n "${TRIAGE_OPTION_ID:-}" ] && [ -n "${PROJECT_ID:-}" ]; then
+            gh project item-edit \
+              --id "$item" \
+              --project-id "$PROJECT_ID" \
+              --field-id "$STAGE_FIELD_ID" \
+              --single-select-option-id "$TRIAGE_OPTION_ID"
+          fi
