@@ -160,6 +160,30 @@ describe("sync engine", () => {
     }
   })
 
+  test("does not hide an unpushed local edit when the remote head is unchanged", async () => {
+    const context = setup()
+    try {
+      context.adapterA.sessions.set("ses_one", snapshot("ses_one", context.dirA, ["hello"]))
+      await context.engineA.push()
+      await context.engineB.pull()
+
+      const onB = context.adapterB.sessions.get("ses_one")
+      onB?.messages.push({ id: "msg_local", type: "user", text: "local only", time: { created: 10 } })
+
+      await context.engineB.pull()
+      const push = await context.engineB.push()
+      expect(push.pushed).toEqual(["ses_one"])
+
+      await context.engineA.pull()
+      expect(context.adapterA.sessions.get("ses_one")?.messages.map((message) => message.text)).toEqual([
+        "hello",
+        "local only",
+      ])
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
   test("detects concurrent edits without overwriting either side", async () => {
     const context = setup()
     try {
