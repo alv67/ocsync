@@ -163,7 +163,7 @@ For that reason, a session with local child sessions is skipped until child-sess
 - The key is stored at `~/.config/ocsync/key` with mode `0600`, or supplied through `OCSYNC_KEY` as base64.
 - Git stores only ciphertext. The plaintext key never leaves the machine through `ocsync`.
 
-Session transcripts can contain source code, shell output, and secrets. Treat the key as a secret. A private Git repository is still required, because metadata and commit history are visible.
+Session transcripts can contain source code, shell output, and secrets. Treat the key as a secret. A private Git repository is still required, because metadata and commit history are visible. See [key management and recovery](key-management.md).
 
 ## Server plugin
 

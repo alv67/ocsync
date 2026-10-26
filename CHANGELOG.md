@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - `ocsync resolve <session> --keep local|remote|both` for explicit conflict resolution.
 - Deletion propagation: local deletions are published as tombstones, and remote tombstones are applied when the local session is unchanged and inactive.
+- Key management and recovery documentation, including backup, lost-key recovery, rotation, and incident handling.
 
 ## [0.1.0] - 2026-10-26
 
