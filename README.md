@@ -6,7 +6,7 @@
 
 Git-backed session sync for OpenCode V2.
 
-> **Status: pre-alpha.** The core sync engine, CLI, and OpenCode server plugin are implemented and covered by unit and end-to-end tests. Child-session transfer and deletion propagation are still pending.
+> **Status: pre-alpha.** The core sync engine, CLI, and OpenCode server plugin are implemented and covered by unit and end-to-end tests. Child-session transfer is still pending.
 
 `ocsync` keeps OpenCode sessions in sync across machines without a resident sync service. Sessions are exported through the official OpenCode V2 HTTP API, stored as encrypted immutable blobs in a private Git repository, and imported on the other machine when needed.
 
