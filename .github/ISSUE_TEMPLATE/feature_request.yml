@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a capability or improvement for ocsync.
+title: "[Feature]: "
+labels: ["needs-triage", "type: feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature requests are evaluated during triage. Please describe the problem before the solution.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem are you trying to solve?
+      placeholder: I use OpenCode on ... and ...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What would you like ocsync to do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workflows or tools you have tried.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core sync
+        - CLI
+        - Server plugin
+        - TUI
+        - Encryption
+        - Documentation
+        - CI and packaging
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, links, or examples. Remove secrets.
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and the documentation.
+          required: true
+        - label: This request is about ocsync, not a general OpenCode feature.
+          required: true

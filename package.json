@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "ocsync",
+  "version": "0.0.0",
+  "description": "Git-backed session sync for OpenCode V2",
+  "type": "module",
+  "license": "MIT",
+  "author": "alv67",
+  "homepage": "https://github.com/alv67/ocsync",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alv67/ocsync.git"
+  },
+  "bugs": {
+    "url": "https://github.com/alv67/ocsync/issues"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "session-sync",
+    "git",
+    "sync"
+  ],
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "default": "./dist/core/index.js"
+    },
+    "./tui": {
+      "types": "./dist/tui.d.ts",
+      "default": "./dist/tui.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "ocsync": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun run build:js && bun run build:types",
+    "build:js": "bun build src/cli.ts src/index.ts src/tui.ts src/core/index.ts --outdir dist --target bun --format esm --external @opencode/plugin --external @opencode/plugin/tui",
+    "build:types": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "check": "bun run lint && bun run typecheck && bun run test",
+    "prepublishOnly": "bun run check && bun run build"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.3",
+    "@opencode/plugin": "2.0.29",
+    "@types/bun": "^1.4.4",
+    "typescript": "^7.0.2"
+  },
+  "peerDependencies": {
+    "@opencode/plugin": ">=2.0.29 <3"
+  }
+}

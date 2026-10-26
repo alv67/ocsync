@@ -1,0 +1,45 @@
+name: Triage
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    name: Label external issues
+    if: github.event.issue.user.login != github.repository_owner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add triage label and comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ["needs-triage"],
+            })
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "Thanks for the report. This issue is in triage: a maintainer will check reproducibility, scope, and priority before it becomes a work item.",
+            })
+
+  project:
+    name: Add issue to project
+    if: vars.PROJECT_NUMBER != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to project
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: |
+          gh project item-add "$PROJECT_NUMBER" \
+            --owner "${{ github.repository_owner }}" \
+            --url "${{ github.event.issue.html_url }}"

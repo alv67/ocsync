@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a reproducible problem with ocsync.
+title: "[Bug]: "
+labels: ["needs-triage", "type: bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please remove credentials, tokens, keys, prompts, and private session content before submitting.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear and concise description of the problem.
+      placeholder: Describe the expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The smallest sequence that reproduces the problem.
+      placeholder: |
+        1. Run `ocsync ...`
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: ocsync version
+      description: Output of `ocsync version` or the commit hash.
+    validations:
+      required: true
+  - type: input
+    id: opencode-version
+    attributes:
+      label: OpenCode version
+      description: Output of `opencode --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: client
+    attributes:
+      label: Client
+      description: Which OpenCode client were you using?
+      options:
+        - TUI
+        - Web UI
+        - Desktop app
+        - Multiple clients
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Linux, macOS, or Windows, including the version.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Redact secrets. Do not paste full session transcripts.
+      render: shell
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have removed credentials, keys, and private session content.
+          required: true
+        - label: I have searched existing issues for duplicates.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

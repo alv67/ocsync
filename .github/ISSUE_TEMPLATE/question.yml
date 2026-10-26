@@ -1,0 +1,32 @@
+name: Question
+description: Ask for help with setup, usage, or behavior.
+title: "[Question]: "
+labels: ["needs-triage", "type: docs"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security issues, do not open a public issue. Use https://github.com/alv67/ocsync/security/advisories/new instead.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What do you need help with?
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Include versions, operating system, client, and what you have already tried. Remove secrets.
+    validations:
+      required: true
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have read the README and the architecture documentation.
+          required: true
+        - label: I have removed credentials and private session content.
+          required: true
