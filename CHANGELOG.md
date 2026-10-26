@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-26
+
 ### Added
 
 - Initial project scaffold.
@@ -23,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Pull no longer hides an unpushed local edit when the remote head is unchanged.
+- Honor `--key-file` during `ocsync init`.
 
 ### Known limitations
 
