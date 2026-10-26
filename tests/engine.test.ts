@@ -131,6 +131,12 @@ async function createConflict(context: ReturnType<typeof setup>): Promise<void> 
   if (pull.conflicts.length !== 1) throw new Error("fixture did not produce a conflict")
 }
 
+async function createBase(context: ReturnType<typeof setup>): Promise<void> {
+  context.adapterA.sessions.set("ses_one", snapshot("ses_one", context.dirA, ["base"]))
+  await context.engineA.push()
+  await context.engineB.pull()
+}
+
 describe("sync engine", () => {
   test("pushes a session and pulls it on the other device", async () => {
     const context = setup()
@@ -297,6 +303,59 @@ describe("sync engine", () => {
       expect(pull.pulled).toHaveLength(0)
       expect(pull.skipped.some((item) => item.reason.includes("active"))).toBe(true)
       expect(context.adapterB.sessions.get("ses_one")?.messages).toHaveLength(1)
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("propagates a local deletion as a tombstone", async () => {
+    const context = setup()
+    try {
+      await createBase(context)
+      context.adapterA.sessions.delete("ses_one")
+
+      const push = await context.engineA.push()
+      expect(push.tombstoned).toEqual(["ses_one"])
+
+      const pull = await context.engineB.pull()
+      expect(pull.deleted).toEqual(["ses_one"])
+      expect(context.adapterB.sessions.has("ses_one")).toBe(false)
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("does not delete a session changed locally", async () => {
+    const context = setup()
+    try {
+      await createBase(context)
+      context.adapterA.sessions.delete("ses_one")
+      await context.engineA.push()
+
+      const onB = context.adapterB.sessions.get("ses_one")
+      onB?.messages.push({ id: "msg_b", type: "user", text: "from B", time: { created: 11 } })
+
+      const pull = await context.engineB.pull()
+      expect(pull.deleted).toHaveLength(0)
+      expect(pull.conflicts).toHaveLength(1)
+      expect(context.adapterB.sessions.has("ses_one")).toBe(true)
+    } finally {
+      rmSync(context.root, { recursive: true, force: true })
+    }
+  })
+
+  test("skips a deletion while the local session is active", async () => {
+    const context = setup()
+    try {
+      await createBase(context)
+      context.adapterA.sessions.delete("ses_one")
+      await context.engineA.push()
+      context.adapterB.active.add("ses_one")
+
+      const pull = await context.engineB.pull()
+      expect(pull.deleted).toHaveLength(0)
+      expect(pull.skipped.some((item) => item.id === "ses_one" && item.reason.includes("active"))).toBe(true)
+      expect(context.adapterB.sessions.has("ses_one")).toBe(true)
     } finally {
       rmSync(context.root, { recursive: true, force: true })
     }

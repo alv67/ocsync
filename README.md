@@ -20,6 +20,7 @@ It is intentionally **not** a real-time collaboration layer. For that, connect m
 
 - **Official API only.** Sessions are transferred with `session.export` and `session.import`. The OpenCode database is never modified directly.
 - **No resident service.** The sync engine runs on demand, either from the CLI or from the OpenCode server plugin.
+- **Deletion-safe.** Remote deletions are applied only when the local session is unchanged; otherwise they become conflicts. Local deletions are published as tombstones.
 - **Conflict-preserving.** Two divergent edits to the same session are never silently merged or overwritten. Both branches are preserved.
 - **Encrypted at rest.** Session blobs are encrypted before they reach Git.
 - **No credential sync.** `ocsync` syncs sessions only. Provider credentials, auth files, and OpenCode configuration stay on each machine.

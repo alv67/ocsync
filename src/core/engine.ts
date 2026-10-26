@@ -51,11 +51,13 @@ export interface StatusReport {
 
 export interface PushResult {
   pushed: string[]
+  tombstoned: string[]
   skipped: { id: string; reason: string }[]
 }
 
 export interface PullResult {
   pulled: string[]
+  deleted: string[]
   skipped: { id: string; reason: string }[]
   conflicts: SessionStatus[]
 }
@@ -78,6 +80,8 @@ export interface SyncResult {
 export class SyncError extends Error {
   override readonly name = "SyncError"
 }
+
+const DELETED_CONTENT = "session-deleted"
 
 export class SyncEngine {
   readonly config: LoadedConfig
@@ -230,6 +234,26 @@ export class SyncEngine {
     return revision
   }
 
+  private writeTombstone(index: DeviceIndex, sessionID: string, parentRevision: string): string {
+    const revision = chainRevision(parentRevision, DELETED_CONTENT)
+    const record: RevisionRecord = {
+      schemaVersion: 1,
+      revision,
+      parentRevision,
+      sessionID,
+      project: this.project,
+      deviceID: this.config.device,
+      createdAt: this.now(),
+      messageCount: 0,
+      lastMessageID: null,
+      blob: null,
+      deleted: true,
+    }
+    this.store.writeRevision(record)
+    index.sessions[sessionID] = this.baseState(revision, null, record)
+    return revision
+  }
+
   async status(): Promise<StatusReport> {
     this.store.ensure()
     const index = this.readIndex()
@@ -313,7 +337,8 @@ export class SyncEngine {
     const sessions = await this.sessionsForProject()
     const active = await this.activeSessionIDs()
     const tips = await this.remoteTips()
-    const result: PushResult = { pushed: [], skipped: [] }
+    const result: PushResult = { pushed: [], tombstoned: [], skipped: [] }
+    const seen = new Set(sessions.map((session) => session.id))
 
     for (const session of sessions) {
       if (session.parentID) {
@@ -382,9 +407,21 @@ export class SyncEngine {
       this.log(`push ${session.id} -> ${shortRevision(revision)}`)
     }
 
-    if (!input.dryRun && result.pushed.length > 0) {
+    for (const [sessionID, state] of Object.entries(index.sessions)) {
+      if (state.deleted || state.localRevision === null) continue
+      if (seen.has(sessionID)) continue
+      const parent = state.revision ? this.store.readRevision(state.revision) : null
+      if (!parent || parent.project !== this.project) continue
+      if (!input.dryRun) this.writeTombstone(index, sessionID, state.revision)
+      result.tombstoned.push(sessionID)
+      this.log(`tombstone ${sessionID} -> ${shortRevision(chainRevision(state.revision, DELETED_CONTENT))}`)
+    }
+
+    if (!input.dryRun && (result.pushed.length > 0 || result.tombstoned.length > 0)) {
       this.writeIndex(index)
-      this.store.commitAndPush(`ocsync: push ${result.pushed.length} session(s) from ${this.config.device}`)
+      this.store.commitAndPush(
+        `ocsync: push ${result.pushed.length} session(s), ${result.tombstoned.length} deletion(s) from ${this.config.device}`,
+      )
     }
 
     return result
@@ -399,13 +436,14 @@ export class SyncEngine {
     const byID = new Map(sessions.map((session) => [session.id, session]))
     const active = await this.activeSessionIDs()
     const tips = await this.remoteTips()
-    const result: PullResult = { pulled: [], skipped: [], conflicts: [] }
+    const result: PullResult = { pulled: [], deleted: [], skipped: [], conflicts: [] }
 
     for (const [sessionID, remote] of tips) {
       const records = remote.records
       if (records.length === 0) continue
       const record = records[0]
       if (!record || record.project !== this.project) continue
+      const remoteTip = remote.tips[0]
 
       const local = byID.get(sessionID)
       if (remote.tips.length > 1) {
@@ -423,8 +461,38 @@ export class SyncEngine {
         continue
       }
 
+      if (!remoteTip) continue
+
       if (record.deleted) {
-        if (local) result.skipped.push({ id: sessionID, reason: "remote deletion is not applied automatically" })
+        if (!local) {
+          if (!input.dryRun) index.sessions[sessionID] = this.baseState(remoteTip, null, record)
+          continue
+        }
+        if (active.has(sessionID)) {
+          result.skipped.push({ id: sessionID, reason: "session is active" })
+          continue
+        }
+        if (this.hasChildren(sessionID, sessions)) {
+          result.skipped.push({ id: sessionID, reason: "session has child sessions; replacing it would delete them" })
+          continue
+        }
+        const localSnapshot = await this.adapter.exportSession(sessionID)
+        const localRevision = revisionOf(localSnapshot)
+        const state = index.sessions[sessionID]
+        const localChanged = state ? state.localRevision !== localRevision : true
+        if (!state || localChanged || !this.isAncestor(state.revision, remoteTip)) {
+          result.conflicts.push(this.conflictRow(local, state, remoteTip, localRevision, sessions))
+          continue
+        }
+        if (input.dryRun) {
+          result.deleted.push(sessionID)
+          continue
+        }
+        this.backup(localSnapshot)
+        await this.adapter.deleteSession(sessionID)
+        index.sessions[sessionID] = this.baseState(remoteTip, null, record)
+        result.deleted.push(sessionID)
+        this.log(`delete ${sessionID} -> ${shortRevision(remoteTip)}`)
         continue
       }
 
@@ -470,8 +538,6 @@ export class SyncEngine {
       const localSnapshot = await this.adapter.exportSession(sessionID)
       const localRevision = revisionOf(localSnapshot)
       const state = index.sessions[sessionID]
-      const remoteTip = remote.tips[0]
-      if (!remoteTip) continue
 
       if (state?.revision === remoteTip) {
         // A remote head equal to the local head means there is no remote change.
@@ -519,10 +585,12 @@ export class SyncEngine {
       result.conflicts.push(this.conflictRow(local, state, remoteTip, localRevision, sessions))
     }
 
-    if (!input.dryRun && (result.pulled.length > 0 || index.updatedAt !== 0)) {
+    if (!input.dryRun && (result.pulled.length > 0 || result.deleted.length > 0 || index.updatedAt !== 0)) {
       this.writeIndex(index)
-      if (result.pulled.length > 0) {
-        this.store.commitAndPush(`ocsync: pull ${result.pulled.length} session(s) from ${this.config.device}`)
+      if (result.pulled.length > 0 || result.deleted.length > 0) {
+        this.store.commitAndPush(
+          `ocsync: pull ${result.pulled.length} session(s), ${result.deleted.length} deletion(s) into ${this.config.device}`,
+        )
       }
     }
 

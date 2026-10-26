@@ -184,7 +184,7 @@ The plugin invokes the `ocsync` binary as a subprocess. The server plugin contex
 ## Known limitations
 
 - Child sessions (subagents) are not synced yet.
-- Deletions are not propagated automatically.
+- Local deletions are published as tombstones; a remote tombstone is applied only when the local session is unchanged and inactive.
 - A session with local child sessions cannot be fast-forwarded safely and is skipped.
 - File snapshots and revert history are not transferred.
 - `fork` metadata and `revert` state are not preserved by the V2 import route.
