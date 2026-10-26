@@ -1,8 +1,12 @@
 # ocsync
 
+[![CI](https://github.com/alv67/ocsync/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/alv67/ocsync/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Project](https://img.shields.io/badge/project-roadmap-2f81f7)](https://github.com/users/alv67/projects/5)
+
 Git-backed session sync for OpenCode V2.
 
-> **Status: pre-alpha.** The design is complete and the feasibility spike passed. The sync engine and the OpenCode server plugin are under active development.
+> **Status: pre-alpha.** The core sync engine, CLI, and OpenCode server plugin are implemented and covered by unit and end-to-end tests. Child-session transfer and deletion propagation are still pending.
 
 `ocsync` keeps OpenCode sessions in sync across machines without a resident sync service. Sessions are exported through the official OpenCode V2 HTTP API, stored as encrypted immutable blobs in a private Git repository, and imported on the other machine when needed.
 
@@ -29,7 +33,7 @@ OpenCode server ──export/import──> ocsync core ──> private Git repos
         └──────── plugin trigger ────────┘
 ```
 
-- The **CLI** performs `pull`, `push`, `sync`, `status`, and conflict resolution.
+- The **CLI** performs `status`, `push`, `pull`, and `sync`.
 - The **server plugin** watches session events and invokes the CLI with a debounce. It runs inside the OpenCode server that is already running, so there is no extra daemon.
 - Every session revision is an immutable encrypted blob. A per-device index points at the current head. Revisions form a hash chain, which lets `ocsync` distinguish a fast-forward from a real divergence.
 
@@ -41,6 +45,19 @@ See [docs/architecture.md](docs/architecture.md) for the full design.
 - Git
 - Bun 1.4+ for development and for building from source
 
+## Install from source
+
+```bash
+git clone https://github.com/alv67/ocsync.git
+cd ocsync
+bun install
+bun run build
+bun link
+ocsync --help
+```
+
+The npm package and prebuilt binaries are not published yet. The GitHub Project tracks the release work.
+
 ## Development
 
 ```bash
@@ -50,6 +67,16 @@ bun run build
 ```
 
 `bun run check` runs Biome, TypeScript, and the test suite.
+
+### End-to-end check
+
+With OpenCode V2 on `PATH`, run:
+
+```bash
+bash scripts/e2e.sh
+```
+
+The script starts two isolated OpenCode servers, creates a temporary session, pushes it from one server, pulls it into the other, and verifies the transcript. Set `KEEP_E2E=1` to keep the temporary directory for inspection.
 
 The repository uses a two-branch model:
 
@@ -64,6 +91,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/github-workflow.md](docs/github
 - [Architecture](docs/architecture.md)
 - [GitHub workflow](docs/github-workflow.md)
 - [Feasibility spike — 2026-10-26](docs/spike-2026-10-26.md)
+- [Project board](https://github.com/users/alv67/projects/5)
 
 ## Security
 
