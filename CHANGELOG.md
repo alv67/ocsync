@@ -15,9 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Push/pull engine with fast-forward and conflict detection.
 - OpenCode server plugin that triggers sync on session events.
 - CLI commands: `init`, `status`, `push`, `pull`, `sync`, `key`, `doctor`.
+- End-to-end two-server test script.
 - Unit tests for revisions, crypto, configuration, project keys, Git storage, and the engine.
 - CI workflow for Linux, macOS, and Windows.
 - Architecture, GitHub workflow, and feasibility spike documentation.
+
+### Fixed
+
+- Pull no longer hides an unpushed local edit when the remote head is unchanged.
 
 ### Known limitations
 
