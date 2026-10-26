@@ -45,7 +45,7 @@ External issues do not become work items automatically. They must be evaluated.
 
 1. New external issues receive the `needs-triage` label and enter the **Triage** stage of the project.
 2. A maintainer checks reproducibility, scope, duplicates, and security impact.
-3. The maintainer assigns `Type` and `Area`.
+3. The maintainer assigns `Kind` and `Area`.
 4. The issue is either:
    - **accepted**: remove `needs-triage`, add `accepted`, set `Priority`, and move it to **Backlog** or **Ready**; or
    - **rejected**: close it with `duplicate`, `invalid`, or `wontfix`.
@@ -58,7 +58,7 @@ Security reports must not be filed as public issues. See [SECURITY.md](../SECURI
 | Field    | Values                                               |
 | -------- | ---------------------------------------------------- |
 | Stage    | Triage, Backlog, Ready, In Progress, In Review, Done |
-| Type     | Bug, Feature, Chore, Docs, Spike, Security           |
+| Kind     | Bug, Feature, Chore, Docs, Spike, Security           |
 | Priority | P0, P1, P2, P3                                       |
 | Area     | Core, CLI, Plugin, Crypto, Docs, CI                  |
 | Size     | XS, S, M, L, XL                                      |

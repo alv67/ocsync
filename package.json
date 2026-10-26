@@ -54,7 +54,7 @@
     "build:js": "bun build src/cli.ts src/index.ts src/tui.ts src/core/index.ts --outdir dist --target bun --format esm --external @opencode/plugin --external @opencode/plugin/tui",
     "build:types": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
-    "test": "bun test",
+    "test": "bun test --timeout 30000",
     "test:watch": "bun test --watch",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

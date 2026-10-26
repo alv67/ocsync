@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process"
 import { realpathSync } from "node:fs"
 import { homedir } from "node:os"
-import { isAbsolute, resolve } from "node:path"
+import { isAbsolute, relative, resolve } from "node:path"
 import { sha256 } from "@noble/hashes/sha2.js"
 import { bytesToHex } from "@noble/hashes/utils.js"
 
@@ -78,9 +78,8 @@ export function expandHome(value: string): string {
 }
 
 export function isPathWithin(child: string, parent: string): boolean {
-  const normalizedChild = resolve(child)
-  const normalizedParent = resolve(parent)
-  return normalizedChild === normalizedParent || normalizedChild.startsWith(`${normalizedParent}/`)
+  const rel = relative(resolve(parent), resolve(child))
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))
 }
 
 /** Cache project-key lookups; the engine filters every session on every run. */
