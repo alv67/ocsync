@@ -49,6 +49,7 @@ Options:
   --project <dir>           Project directory (default: current directory)
   --server <url>            OpenCode server URL (default: local background service)
   --password <password>     OpenCode server password
+  --key-file <path>         Encryption key path for init and key commands
   --dry-run                 Show what would happen without writing
   --json                    Print machine-readable JSON
   --quiet                   Suppress progress messages
@@ -65,6 +66,7 @@ interface CliOptions {
   project?: string
   server?: string
   password?: string
+  keyFile?: string
   dryRun: boolean
   json: boolean
   quiet: boolean
@@ -83,6 +85,7 @@ function parseCli(argv: string[]): { command: string[]; options: CliOptions } {
       project: { type: "string" },
       server: { type: "string" },
       password: { type: "string" },
+      "key-file": { type: "string" },
       "dry-run": { type: "boolean" },
       json: { type: "boolean" },
       quiet: { type: "boolean" },
@@ -101,6 +104,7 @@ function parseCli(argv: string[]): { command: string[]; options: CliOptions } {
       project: values.project,
       server: values.server,
       password: values.password,
+      keyFile: values["key-file"],
       dryRun: values["dry-run"] === true,
       json: values.json === true,
       quiet: values.quiet === true,
@@ -154,7 +158,7 @@ async function commandInit(options: CliOptions): Promise<void> {
     throw new ConfigError('Run "ocsync init --remote <git-url>" to create a configuration.')
   }
 
-  const keyPath = defaultKeyPath()
+  const keyPath = options.keyFile ?? defaultKeyPath()
   writeDefaultConfig(path, options.remote, keyPath)
 
   let createdKey = false
