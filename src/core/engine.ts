@@ -437,7 +437,12 @@ export class SyncEngine {
       if (!remoteTip) continue
 
       if (state?.revision === remoteTip) {
-        index.sessions[sessionID] = { ...state, localRevision }
+        // A remote head equal to the local head means there is no remote change.
+        // Only refresh the local marker when the local content is also unchanged:
+        // overwriting it here would hide an unpushed local edit from push.
+        if (state.localRevision === localRevision) {
+          index.sessions[sessionID] = { ...state, localRevision }
+        }
         continue
       }
 
