@@ -90,6 +90,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/github-workflow.md](docs/github
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Key management and recovery](docs/key-management.md)
 - [GitHub workflow](docs/github-workflow.md)
 - [Feasibility spike — 2026-10-26](docs/spike-2026-10-26.md)
 - [Project board](https://github.com/users/alv67/projects/5)
